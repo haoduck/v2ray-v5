@@ -1,0 +1,70 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
+      - name: build
+        run: |
+          git clone https://github.com/v2fly/v2ray-core.git -b v5
+          cd v2ray-core
+          build() {
+            GOOS=$1
+            GOARCH=$2
+            if [[ $GOARCH == "mips" || $GOARCH == "mipsle" ]];then
+              env CGO_ENABLED=0 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            elif [[ $GOOS == "windows" ]];then
+              env CGO_ENABLED=0 go build -o bin/v2ray-${GOOS}-${GOARCH}.exe -ldflags "-s -w" ./main
+            elif [[ $GOARCH == "armv5" ]];then
+              env CGO_ENABLED=0 GOARCH=arm GOARM=5 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            elif [[ $GOARCH == "armv6" ]];then
+              env CGO_ENABLED=0 GOARCH=arm GOARM=6 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            elif [[ $GOARCH == "armv7" ]];then
+              env CGO_ENABLED=0 GOARCH=arm GOARM=7 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            elif [[ $GOARCH == "arm64" ]];then
+              env CGO_ENABLED=0 GOARCH=arm64 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            else
+              env CGO_ENABLED=0 go build -o bin/v2ray-${GOOS}-${GOARCH} -ldflags "-s -w" ./main
+            fi
+          }
+          build darwin amd64
+          build dragonfly amd64
+          build freebsd 386
+          build freebsd amd64
+          build linux 386
+          build linux amd64
+          build linux armv5
+          build linux armv6
+          build linux armv7
+          build linux arm64
+          build linux mips
+          build linux mipsle
+          build linux mips64
+          build linux mips64le
+          build linux ppc64
+          build linux ppc64le
+          build linux s390x
+          build openbsd 386
+          build openbsd amd64
+          build windows 386
+          build windows amd64
+          
+          upx --best --lzma bin/*
+          
+      - name: Upload to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: v2ray-core/bin/*
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
+          prerelease: false
